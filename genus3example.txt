@@ -1,0 +1,338 @@
+// this is Magma code used to compute the 2-torsion subgroup of the Jacobian of the genus 3 curve X0(75)/w25 //
+
+//  the scheme of bitangents //
+
+Z<x,y,z> := PolynomialRing(Integers(),3);
+f := 3*x^3*z - 3*x^2*y^2 + 5*x^2*z^2 -3*x*y^3 -19*x*y^2*z -x*y*z^2 +3*x*z^3 +2*y^4 +7*y^3*z -7*y^2*z^2 -3*y*z^3;
+Zz<X,Y> := PolynomialRing(Integers(),2);
+F := Evaluate(f,[X,Y,1]);
+Zu<[u]> := PolynomialRing(Integers(),4);
+ZY<Y> := PolynomialRing(Zu);
+h := Evaluate(F,[u[1]*Y + u[2],Y]);
+l := MonomialCoefficient(h,Y^4);
+H := h - l*(Y^2 + u[3]*Y + u[4])^2 ;
+eqns := Coefficients(H);
+S := Scheme(AffineSpace(Zu),eqns);
+
+// we base change to F_{289} and compute the points of S over this finite field //
+
+K := QuadraticField(7) ; 
+OK := Integers(K) ;
+P := 17*OK ;
+F289,phi := ResidueClassField(P);
+S2 := BaseChange(S,F289);
+A := Points(S2) ;
+
+A := SetToSequence(A) ;
+A := [ Eltseq(a) : a in A ]; 
+A := [ [ a@@phi : a in b ] : b in A]; 
+
+// We Hensel lift these points //
+
+Zz<[u]> := PolynomialRing(OK,4);
+f1 := Zz ! eqns[1];
+f2 := Zz ! eqns[2];
+f3 := Zz ! eqns[3];
+f4 := Zz ! eqns[4];
+
+H := [f1,f2,f3,f4];
+J := JacobianMatrix(H) ;
+
+
+lift := function(n,A) ;   // the input of this function A is a solution of the system H modulo P^n and the output is the lift of this solution mod P^n+1 //                                           
+a := Eltseq(A) ;
+Fn,tn := quo<OK | P^(n) > ;
+b := [ s@@tn : s in a ];
+c := Evaluate(H,b);
+d := [ (1/17^n)*s : s in c] ;
+e := [ phi(s) : s in d ] ;
+Y := Matrix(F289, 4,1, e ) ;
+Jc := Evaluate(J,b) ;
+s1 := Eltseq(Jc[1]) ;
+s2 := Eltseq(Jc[2]) ;
+s3 := Eltseq(Jc[3]) ;
+s4 := Eltseq(Jc[4]) ;
+d1 := [phi(s) : s in s1 ];
+d2 := [phi(s) : s in s2 ];
+d3 := [phi(s) : s in s3 ];
+d4 := [phi(s) : s in s4 ];
+s := d1 cat d2 cat d3 cat d4 ;
+Jcc := Matrix(F289, 4,4, s);
+Zu<[y]> := PolynomialRing(F289, 4) ;
+B := Matrix(Zu, 4,1, [y[1],y[2],y[3],y[4]]) ;
+JCc := RMatrixSpace(Zu, 4,4) ! Jcc ;
+eqns := Eltseq( (JCc * B ) + Y ) ;
+Zzz<[y]> := PolynomialRing(F289,4);
+g1 := Zzz ! eqns[1] ;
+g2 := Zzz ! eqns[2] ;
+g3 := Zzz ! eqns[3] ;
+g4 := Zzz ! eqns[4] ;
+EQN := [g1,g2,g3,g4 ] ;
+S1 := Scheme(AffineSpace(Zzz) , EQN) ;
+PT := Points(S1) ;
+PPT := [ Eltseq(a) : a in PT ] ;
+PTT := [ s@@phi : s in PPT ] ;
+NPT := [ [b[1] + (17^n)*s[1], b[2] + (17^n)*s[2], b[3] + (17^n)*s[3], b[4] + (17^n)*s[4] ] : s in PTT ] ;
+return NPT[1] ;
+end function ;
+
+// the following function computes candidates for our minimal polynomial //
+// the input is (x, k, p, d ) = ( p-adic approximation of a point modulo P^k, k i.e the precision of the approximation, 17 which is the rational prime below P, a guess for the degree of the polynomial ) //
+
+apr := function(x,k,p,d) ; 
+ZZ := FreeAbelianGroup(d+1) ;
+Z2 := FreeAbelianGroup(2) ;
+Z2s := sub< Z2 | [(p^k)*Z2.1,(p^k)*Z2.2] > ;
+Q,pi := quo< Z2 | Z2s > ; 
+R,r := quo<OK | P^k> ;
+a := [ Z2 !  Eltseq((x^i)@@r) : i in [0..d] ] ;
+c := [ pi(s) : s in a ] ;
+phi := hom< ZZ -> Q | c > ;
+K := Kernel(phi) ;
+G := { Eltseq(ZZ ! g) : g in Generators(K) } ;
+W := StandardLattice(d+1) ;
+L := sub<W | [ W ! g : g in G ] > ;
+v := ShortestVector(L) ;
+II := Index(W,L) ;
+Bound := (II)^(1/(d+1));
+Bound2 := (1/1000)*Bound ;
+Zx<u> := PolynomialRing(Integers());
+O := [ v[s+1]*u^s : s in [0..d] ] ;
+T := &+[ a : a in O] ;
+return T, Length(v),Bound2;
+end function ;
+
+// the output is a polynomial whose coefficients are the coordinates of the shortest non-zero vector in the lattice defined using the input, the lenght of the shortest non-zero vector in the lattice and the bound given by Hermite's theorem //
+
+// the following function computes a relation among the 2 coefficents of the bitangent //
+// the input is (x, a, n) where x = [x[1], x[2]] are p-adic approximations modulo P^a of the coefficients of a bitangent, and we are looking for a relation of the form b*x[2] = a_d*x[1]^d + ... + a_1x[1] + a_0, for integers a_0, ..., a_d, b //
+
+
+rel := function(x,a,n) ;
+ZZ := FreeAbelianGroup(n+2);
+Z1 := FreeAbelianGroup(2);
+Z1s := sub<Z1 |[(17^a)*Z1.1,(17^a)*Z1.2]>;
+Q,pi := quo<Z1 | Z1s>;
+R,r := quo<OK | P^a> ;
+xx := [ s@@r : s in x ];
+y := [ xx[1]^(n-t) : t in [0..n-1]] cat [xx[2]] ;
+j := [ Z1 ! Eltseq(s) : s in y ];
+c := [ pi(s) : s in j ] ;
+d := c cat [ Q ! [1,0] ];
+phi := hom< ZZ -> Q | d > ;
+K := Kernel(phi) ;
+G := { Eltseq(ZZ ! g) : g in Generators(K) };
+W := StandardLattice(n+2);
+L := sub<W | [ W ! g : g in G ] > ;
+i := Index(W, L );
+B := (1/1000)*((i)^(1/(n+2))) ;
+b := BestApproximation(B,10^10);
+v := ShortVectors(L,b) ;
+V := [ Eltseq(a[1]) : a in v ]; 
+Z<[z]> := PolynomialRing(Integers(),2);
+Vu := [ [t[s+1]*(z[1]^(n-s)) : s in [0..n-1] ] cat [t[n+1]*z[2],t[n+2] ] : t in V ];
+Rel := [ &+[a : a in b] : b in Vu ];
+return  Rel;             
+end function ;
+
+\\ the output are all relation of the form b*x[2] = a_d*x[1]^d + ... + a_1x[1] + a_0, for integers a_0, ..., a_d, b corresponding the short vectors in the lattice ( vectors with are smaller than a small constant * bound of Herminte's theorem) \\
+
+\\ For example, the bitangent x = u*y + s(u)*z where u^6 + 14*u^5 -20*u^3 + 95*u^2 + 134*u - 139 and s(u) =1/9164*(41*u^5 + 467*u^4 - 1312*u^3 + 2604*u^2 + 2687*u -3083); can be computed as follows \\
+
+t  := [] ;
+t[1] := A[5] ; \\ = [ $.2 + 12, 3*$.2 + 13, 11*$.2 + 10, 5*$.2 + 15 ] \\
+
+for i in [2..50] do ;
+t[i] := lift(i-1, t[i-1])[1]  ;
+end for ;
+
+m1 := apr(t[50][1], 50, 17, 6)[1] ; \\ m1 is -u^6 - 14*u^5 + 5*u^4 + 20*u^3 - 95*u^2 - 134*u + 139, the entire output of apr(t[50][1], 50, 17, 6) is -u^6 - 14*u^5 + 5*u^4 + 20*u^3 - 95*u^2 - 134*u + 139
+216.619482041666787842895586813 378304697422089.329817477713424 \\
+m2 := apr(t[50][2], 50, 17, 6)[1] ; \\ m2 is u^6 + 54*u^5 + 15*u^4 + 180*u^3 + 15*u^2 + 54*u + 1 \\
+
+rr := rel([ t[50][1], t[50][2]], 50, 5) ; \\ the first relation in rr is  41*z[1]^5 + 467*z[1]^4 - 1312*z[1]^3 + 2604*z[1]^2 + 2687*z[1] - 9164*z[2] - 3083 which can be translated into the s(u) above \\
+
+
+\\ We verify that the bitangents generate the 2-torsion subgroup \\
+
+
+\\ begin by defining the 28 bitangents over the number field K (as below) and scale so that they are defined over the ring of integers of K \\
+
+T<u> := PolynomialRing(Rationals());
+g := -u^6 - 14*u^5 + 5*u^4 + 20*u^3 - 95*u^2 - 134*u + 139 ;
+K := SplittingField(g);
+
+g1 := g ;
+g12 := 1/9164*(41*u^5 + 467*u^4 - 1312*u^3 + 2604*u^2 + 2687*u -3083);
+
+g2 :=  -u^6 - 3*u^5 + 5*u^3 - 60*u^2 - 63*u + 41 ;
+g22 := 1/27*( u^5 + u^4 - 2*u^3 - u^2 + 62*u - 34) ; 
+
+g3 := 11*u^6 + 49*u^5 + 20*u^4 - 55*u^3 + 40*u^2 - 11*u + 1 ;
+g32 := 1/17*( 407*u^5 + 1901*u^4 + 1154*u^3 - 1773*u^2 + 1106*u -188) ;
+
+R1 := Roots(g1,K);
+PT1 := [ [R1[i,1],Evaluate(g12,R1[i,1])] : i in [1..6] ];
+R2 := Roots(g2,K);
+PT2 := [ [R2[i,1],Evaluate(g22,R2[i,1])] : i in [1..6] ];
+R3 := Roots(g3,K);
+PT3 := [ [R3[i,1],Evaluate(g32,R3[i,1])] : i in [1..6] ];
+
+g4 := -u^2 - u + 1 ;
+g42 := 3*u - 2 ; 
+g5 := u^2 - 7*u + 11 ;
+g52 := -u + 2 ;
+g6 := -u^2 - 8*u + 4 ;
+g62 := 2*u - 1 ;
+R4 := Roots(g4,K);
+PT4 := [ [R4[i,1],Evaluate(g42,R4[i,1])] : i in [1..2] ];
+R5 := Roots(g5,K);
+PT5 := [ [R5[i,1],Evaluate(g52,R5[i,1])] : i in [1..2] ];
+R6 := Roots(g6,K);
+PT6 := [ [R6[i,1],Evaluate(g62,R6[i,1])] : i in [1..2] ];
+
+PT7 := [ [1,-1], [2,-1], [-3,-1], [-2,-1] ];
+BPT := PT1 cat PT2 cat PT3 cat PT4 cat PT5 cat PT6 cat PT7 ;
+BF<[x]> := PolynomialRing(K,3);
+Bbtan := [ x[1] - a[1]*x[2] -a[2]*x[3] : a in BPT ];
+CBtan := [ Coefficients(a) : a in Bbtan ];
+DenomCBtan := [ [Denominator(s) : s in a ] : a in CBtan ];
+LCmBtan := [ Lcm(s[2],s[3]) : s in DenomCBtan ]; 
+Btan := [ LCmBtan[i]*Bbtan[i] : i in [1..28] ];
+
+OK := Integers(K) ;
+P := 289*OK ;
+p1 := Factorization(P)[1,1] ;       \\ this is a prime ideal of norm 289 p1 = <17, 4 + 2*K.1 + 2*K.1^2> \\
+R<[x]> := PolynomialRing(K,3);
+eqn:= 3*x[1]^3*x[3] - 3*x[1]^2*x[2]^2 + 5*x[1]^2*x[3]^2 - 3*x[1]*x[2]^3 - 19*x[1]*x[2]^2*x[3] - x[1]*x[2]*x[3]^2 + 3*x[1]*x[3]^3 + 2*x[2]^4 +7*x[2]^3*x[3] - 7*x[2]^2*x[3]^2 - 3*x[2]*x[3]^3; \\ a model of the curve \\
+
+P2:=ProjectiveSpace(R);
+X:=Curve(P2,eqn);
+F289,pi := ResidueClassField(p1) ;
+X289 := ChangeRing(X,F289);
+Cl289, phi,psi := ClassGroup(X289) ;
+
+CBtan := [ Coefficients(a) : a in Btan];
+ACBta := [ [ OK ! s : s in a ] : a in CBtan ];
+F289CBtan := [ [pi(s) : s in a ] : a in ACBta];
+
+
+BB<[v]> := PolynomialRing(F289,3);
+F289Btan := [ a[1]*v[1] + a[2]*v[2] + a[3]*v[3] : a in F289CBtan ];
+
+FX289 := FunctionField(X289);
+FXBtan := [ Evaluate(a, [FX289.1, FX289.2, 1 ]) : a in F289Btan];
+Db := [ Divisor(FXBtan[27]/FXBtan[i]) : i in [1..28] ];
+DDb := [Decomposition(s) : s in Db];
+DDb1 := [ [1/2*a[i,2] : i in [1..#a]] : a in DDb ];
+DDb1 := [ [Integers()!s : s in a ] : a in DDb1] ;
+DDb2 := [ [a[i,1] : i in [1..#a] ] : a in DDb];
+divs := [ [DDb1[i][j]*DDb2[i][j] : j in [1..#DDb1[i]]] : i in [1..#DDb1] ]; 
+divs := [ &+a : a in divs ];
+
+
+
+Z := FreeAbelianGroup(1);
+degr := hom<Cl289 -> Z | [ Degree(phi(g)) : g in OrderedGenerators(Cl289)]>;
+J289 := Kernel(degr) ;
+H := [psi(a) : a in divs ];
+H := [ J289!s : s in H ]; 
+H := [ s : s in H | s ne J289!0];
+
+
+ZN := FreeAbelianGroup(#H);
+h := hom<ZN -> J289 | [a : a in H] > ;
+im := Image(h) ;      \\ this image is Abelian Group isomorphic to Z/2 + Z/2 + Z/2 + Z/2 + Z/2 + Z/2, confirming the fact that H is the entire 2-torsion subgroup \\
+
+\\ We take Galois invariants to compute the rational 2-torsion subgroup \\
+
+A,b,piK := AutomorphismGroup(K);   \\ this has two generators \\
+s1 := piK(A.1);
+s2 := piK(A.2);
+
+\\ we  determine the action of the two generators on the bitangents \\
+
+for i in [1..28] do ;
+a := CFBtan[i];
+a1 := [pi2(s) : s in a];        
+l := Lcm([Denominator(s) : s in a1]);
+a2 := [ l*s : s in a1 ];
+a3 := [i : i in [1..28] | CFBtan[i] eq a2];
+print <i,a3>;
+end for ;
+
+\\ the first generator acts as follows and we look at the subgroup of H fixed by this \\
+
+cpt := [ZN.4,ZN.6,ZN.5,ZN.1,ZN.3,ZN.2,ZN.8,ZN.7,ZN.10,ZN.9,ZN.12,ZN.11,ZN.14,ZN.13,ZN.17,ZN.18,ZN.15,ZN.16,ZN.20,ZN.19,ZN.22,ZN.21,ZN.24,ZN.23,ZN.25,ZN.26,ZN.27];
+
+conj := hom< ZN -> ZN | cpt>;
+mu := hom< ZN -> J289 | [ h(ZN.i) - h(conj(ZN.i)) : i in [1..27]]>;
+ker := Kernel(mu);
+imKer := sub<J289 | [h(k) : k in Generators(ker)]>;     \\ imKer is Abelian Group isomorphic to Z/2 + Z/2 + Z/2 \\
+
+\\ the second generators acts as follows and we look at the subgroup of H fixed by this \\
+
+cpt2 := [ ZN.3, ZN.1, ZN.5, ZN.6, ZN.4, ZN.2, ZN.11, ZN.10, ZN.7, ZN.9, ZN.12, ZN.8, ZN.17, ZN.18, ZN.14, ZN.13, ZN.15, ZN.16, ZN.20, ZN.19, ZN.22, ZN.21, ZN.24, ZN.23, ZN.25, ZN.26, ZN.27];
+conj2 := hom< ZN -> ZN | cpt2>;
+mu2 := hom< ZN -> J289 | [ h(ZN.i) - h(conj2(ZN.i)) : i in [1..27]]>;
+ker2 := Kernel(mu2);
+imKer2 := sub<J289 | [h(k) : k in Generators(ker2)]>;  \\ imKer2 is Abelian Group isomorphic to Z/2 + Z/2 \\
+
+\\ we find that imKer2 is a subgroup of imKer and hence the rational 2-torsion subgroup is isomorphic to Z/2 + Z/2 \\ 
+
+
+\\ to find explicit generators we can compute the intersection of the rational bitangents with the curve \\
+
+
+
+\\ the bitangent l_1  given by x + 3y + z intersects the curve at (1:-1:2) with multiplicity 4 \\
+\\ l_2 :  x - y + z intersects at (1 - \sqrt(2) : 1 \sqrt(2)) and its Galois conjugate \\
+\\ l_3 : x - 2y + z intersect at (-6 + 2\sqrt(-15) : 1 + \sqrt(-15) : 8) and its Galois conjugate \\
+
+\\ the follow verifies that (1/2)*div(l_i/l_1) i =2,3 generates the rational 2-torsion subgroup \\
+
+Zt<t> := PolynomialRing(Rationals());
+f := (t^2 -2)*(t^2 +15) ;
+K := SplittingField(f) ;
+s1 := t^2 -2;       
+R1 := Roots(s1, K) ;
+s2 := t^2 + 15;     
+R2 := Roots(s2, K) ;
+
+R1 := [ a[1] : a in R1 ];
+R2 := [ a[1] : a in R2 ];
+pt1 := [ [1 - a, 1,a] : a in R1];
+pt2 := [ [-6 - 2*a, 1 - a , 8] : a in R2];
+OK := Integers(K) ;
+P := 11*OK ;              
+P := Factorization(P)[1,1] ;
+Rx<[x]> := PolynomialRing(K,3);
+eqn:=3*x[1]^3*x[3] - 3*x[1]^2*x[2]^2 + 5*x[1]^2*x[3]^2 - 3*x[1]*x[2]^3 -19*x\
+[1]*x[2]^2*x[3] - x[1]*x[2]*x[3]^2 + 3*x[1]*x[3]^3 + 2*x[2]^4 + 7*x[2]^3*x[3] \
+- 7*x[2]^2*x[3]^2 - 3*x[2]*x[3]^3;
+
+
+
+P2:=ProjectiveSpace(Rx);
+X:=Curve(P2,eqn);
+p1 := P ;
+F289,pi := ResidueClassField(p1) ;
+X289 := ChangeRing(X,F289);
+Cl289, phi,psi := ClassGroup(X289) ;
+ 
+pt := pt1 cat pt2 ;
+Z := FreeAbelianGroup(1);
+degr := hom<Cl289 -> Z | [ Degree(phi(g)) : g in OrderedGenerators(Cl289)]>; 
+J289 := Kernel(degr) ; 
+a1 := [1 , -1, 2] ;
+a1 := X289 ! a1;
+pt := [ [ OK ! a : a in b] : b in pt ];
+pt := [ [pi(a) : a in b ] : b in pt ];
+pt := [ X289 ! a : a in pt ] ;
+pt := [ Place(a) : a in pt ] ;
+D := [ pt[1] + pt[2] -2*a1 , pt[3] + pt[4] -2*a1 ] ;
+H := [ psi(a) : a in D] ;
+ZN := FreeAbelianGroup(#H);
+h := hom<ZN -> J289 | [a : a in H] > ;
+im := Image(h) ;  \\ we find that this image is an Abelian Group isomorphic to Z/2 + Z/2, confirming our claim \\
+
