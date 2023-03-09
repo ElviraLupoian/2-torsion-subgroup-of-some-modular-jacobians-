@@ -92,7 +92,9 @@ end function ;
 
 \\ the p-adic approximations can be used to obtain the minimal polynomails of the coordinates of points of S using the following function \\
 
-apr := function(x,k,p,d) ;          
+// the input is (x, k, p, d ) = ( p-adic approximation of a point modulo P^k, k i.e the precision of the approximation, 17 which is the rational prime below P, a guess for the degree of the polynomial ) //
+
+apr := function(x,k,p,d) ; 
 ZZ := FreeAbelianGroup(d+1) ;
 Z2 := FreeAbelianGroup(2) ;
 Z2s := sub< Z2 | [(p^k)*Z2.1,(p^k)*Z2.2] > ;
@@ -115,3 +117,189 @@ T := &+[ a : a in O] ;
 return T, Length(v),Bound2;
 end function ;
 
+// the output is a polynomial whose coefficients are the coordinates of the shortest non-zero vector in the lattice defined using the input, the lenght of the shortest non-zero vector in the lattice and the bound given by Hermite's theorem //
+
+// the following function computes a relation among the 2 coefficents of the tritangent//
+// the input is (x, a, n) where x = [x[1], x[2]] are p-adic approximations modulo P^a of the coefficients of a bitangent, and we are looking for a relation of the form b*x[2] = a_d*x[1]^d + ... + a_1x[1] + a_0, for integers a_0, ..., a_d, b //
+
+
+rel := function(x,a,n) ;
+ZZ := FreeAbelianGroup(n+2);
+Z1 := FreeAbelianGroup(2);
+Z1s := sub<Z1 |[(17^a)*Z1.1,(17^a)*Z1.2]>;
+Q,pi := quo<Z1 | Z1s>;
+R,r := quo<OK | P^a> ;
+xx := [ s@@r : s in x ];
+y := [ xx[1]^(n-t) : t in [0..n-1]] cat [xx[2]] ;
+j := [ Z1 ! Eltseq(s) : s in y ];
+c := [ pi(s) : s in j ] ;
+d := c cat [ Q ! [1,0] ];
+phi := hom< ZZ -> Q | d > ;
+K := Kernel(phi) ;
+G := { Eltseq(ZZ ! g) : g in Generators(K) };
+W := StandardLattice(n+2);
+L := sub<W | [ W ! g : g in G ] > ;
+i := Index(W, L );
+B := (1/1000)*((i)^(1/(n+2))) ;
+b := BestApproximation(B,10^10);
+v := ShortVectors(L,b) ;
+V := [ Eltseq(a[1]) : a in v ]; 
+Z<[z]> := PolynomialRing(Integers(),2);
+Vu := [ [t[s+1]*(z[1]^(n-s)) : s in [0..n-1] ] cat [t[n+1]*z[2],t[n+2] ] : t in V ];
+Rel := [ &+[a : a in b] : b in Vu ];
+return  Rel;             
+end function ;
+
+\\ the output are all relation of the form b*x[2] = a_d*x[1]^d + ... + a_1x[1] + a_0, for integers a_0, ..., a_d, b corresponding the short vectors in the lattice ( vectors with are smaller than a small constant * bound of Herminte's theorem) \\
+
+
+\\ In this example, once the field of definition of the tritangents was known, we were able to find the points of S using the Magma  command Points(); \\
+
+\\ We verify that we the tritangents generate the entire 2-torsion subgroup\\
+
+RR<[x]> := PolynomialRing(Rationals(),4);
+ e1 := x[1]^2*x[3] - x[1]*x[3]^2 - x[2]^3 + x[2]^2*x[4] -3*x[2]*x[4]^2 + x[3]^3 + 3*x[4]^3 ;
+ e2 := x[1]*x[4] - x[2]*x[3] + x[3]*x[4] ;
+ P2 := ProjectiveSpace(RR);
+ X := Curve(P2,[e1,e2]);
+ ZZ<u> := PolynomialRing(Rationals());
+ f1 := u^36 - 24*u^35 + 408*u^34 - 3372*u^33 + 22056*u^32 - 127776*u^31 + 630786*u^30 - 2714424*u^29+ 11261496*u^28 - 41046764*u^27 + 131733144*u^26 - 408414384*u^25 + 1150083423*u^24 - 2814636528*u^23  + 6374836368*u^22 - 13214216088*u^21 + 23592829968*u^20 - 36895248864*u^19+ 51352475964*u^18 - 58328930160*u^17 + 42803579664*u^16 + 3616822728*u^\
+15 - 69219558864*u^14 + 126403035264*u^13 - 153084561489*u^12 + 151586318088*u^11 - 131113127592*u^10 + 78540995524*u^9 + 18513274440*u^8 - 121585972992*u^7 + 155356552290*u^6 - 110860906584*u^5 + 57084024120*u^4 - 38472387036*u^3 + 36135508152*u^2 - 21483956688*u + 5029788241;
+
+ N := NumberField(f1);   \\ the field of definition of the tritangents - computed using the minimal polynomials \\
+ e := EquationOrder(N);
+ F := Factorization(Discriminant(e));
+ P := [ a[1] : a in F ];
+
+ for p in P do ;
+e := pMaximalOrder(e,p);
+ end for ;
+ 
+ ON := MaximalOrder(e);
+P := 289*ON ;
+FP := Factorization(P);
+P1 := FP[1,1];
+F289,pi := ResidueClassField(P1);
+X289 := ChangeRing(X,F289);
+Cl289,phi,psi := ClassGroup(X289);
+Z := FreeAbelianGroup(1) ;
+degr := hom<Cl289 -> Z | [ Degree(phi(g)) : g in OrderedGenerators(Cl289)]>;
+ 
+J289 := Kernel(degr) ;
+Zxyz<x,y,z>:=PolynomialRing(Integers(),3);                     
+F := x^2*z - x*z^2 - y^3 + y^2 - 3*y +z^3 + 3 ;
+ G := x - y*z + z ;
+Zu<[u]> := PolynomialRing(Integers(),7) ;
+ZYZ<Y,Z> := PolynomialRing(Zu,2) ;
+f := Evaluate(F, [u[1]*Y+u[2]*Z+u[3] , Y, Z]);
+g := Evaluate(G, [u[1]*Y+u[2]*Z+u[3] , Y, Z]);
+h := Resultant(f,g,Z);
+ZW<W> := PolynomialRing(Zu);
+h := Evaluate(h,[W,0]);
+l := Coefficient(h,6);
+eqns := Coefficients(h - l*(W^3 + u[4]*W^2 + u[5]*W + u[6])^2); 
+ p := W^3 + u[4]*W^2 + u[5]*W + u[6] ;
+e := Discriminant(p)*u[7] -1 ;
+eqns := eqns cat [e] ;
+S := Scheme(AffineSpace(Zu),eqns);
+ SN := BaseChange(S,N);
+A := Points(SN);                                        \\ takes approximately 1 hour to complete \\
+A := [ Eltseq(a) : a in  A];
+ A3 := [ [u[i] : i in [1..3] ] : u in  A];
+ 
+ A4 :=  [ [-1] cat u : u in  A3];
+ DA4 := [ [Denominator(aa) : aa in a ] : a in A4 ];
+ 
+LCMDA4 := [ LCM(a) : a in DA4 ];
+CA4 := [ [LCMDA4[i]*a : a in A4[i]] : i in [1..120]]; 
+ONCA4 := [ [ ON ! aa : aa in a ] : a in CA4 ];
+
+tf,u := IsPrincipal(P1);
+vONCA4 := [ [Valuation(aa,P1) : aa in a ] : a in ONCA4 ];
+mVal := [ Minimum(a) : a in vONCA4];
+OONCA4 := [ [u^(-mVal[i])*aa : aa in ONCA4[i] ] : i in [1..120] ]; 
+F289CA4 := [ [pi(aa) : aa in a ] : a in OONCA4 ]; 
+TT<x,y,z,w> := PolynomialRing(F289,4) ;
+ F289TP := [ a[1]*x + a[2]*y + a[3]*z + a[4]*w : a in F289CA4];
+NZF289TP := [ a : a in F289TP | a ne 0 ]; 
+ FX289 := FunctionField(X289);
+FFTP := [ Evaluate(a, [ FX289.1, FX289.2, FX289.3,1]) : a in NZF289TP ];
+ 
+Db := [ Divisor(FFTP[i]/FFTP[1]) : i in [2..#FFTP]];                        
+ DDb := [Decomposition(s) : s in Db];                                   
+DDb1 := [ [1/2*a[i,2] : i in [1..#a]] : a in DDb ];
+DDb1 := [ [Integers()!s : s in a ] : a in DDb1] ;
+DDb2 := [ [a[i,1] : i in [1..#a] ] : a in DDb];
+divs := [ [DDb1[i][j]*DDb2[i][j] : j in [1..#DDb1[i]]] : i in [1..#DDb1] ];  
+divs := [ &+a : a in divs ];
+Z := FreeAbelianGroup(1);
+degr := hom<Cl289 -> Z | [ Degree(phi(g)) : g in OrderedGenerators(Cl289)] > ;
+JF := Kernel(degr) ;
+H := [ psi(a) : a in divs];
+H := [JF!s : s in H ];
+ZN := FreeAbelianGroup(#H);
+h := hom<ZN -> JF | [ a : a in H ]>
+ih := Image(h) ;                           \\ the image of H is Abelian Group isomorphic to Z/2 + Z/2 + Z/2 + Z/2 + Z/2 + Z/2 + Z/2 + Z/2 which confirms claim that this is the entire 2-torsion subgroup  \\
+
+
+\\ we find the Galois group and the subgroup of H fixed by the Galois group \\
+
+Aut := Automorphisms(N);
+
+
+ONCA4 := [ [ON ! aa : aa in a ] : a in CA4 ];
+CFA := ONCA4 ;
+
+
+ for i in [1..120 ] do ;                        
+a1 := CFA[i] ;
+ a2 := [ Eltseq(aa) : aa in a1 ]; 
+ a3 := [ [Integers() ! s : s in a ] : a in a2 ]; 
+ gcd1 := GCD(a3[1]);
+gcd2 := GCD(a3[2]);
+ gcd3 := GCD(a3[3]);
+gcd4 := GCD(a3[4]);
+ GG := GCD([gcd1,gcd2,gcd3,gcd4]);
+ a4 := [ [1/GG*aa : aa in a ] : a in a3 ];
+ a5 := [ [ ON ! a : a in aa ] : aa in a4 ] ;
+CFA[i] := a5 ;
+end for ;
+
+
+ GA := [] ; 
+ for j in [1..36 ] do ; 
+ s1 := Aut[j] ;
+ GA[j] := [] ;
+for i in [1..120] do ;
+ a1 := CA4[i];
+s1a1 := [ aa@s1 : aa in a1];
+d1 := [ Denominator(aa) : aa in s1a1] ;
+ l := LCM(d1);
+cs1a1 := [ l*aa : aa in s1a1] ;
+cs1a1 := [ ON ! aa : aa in cs1a1 ];
+ ecs1a1 := [ Eltseq(a) : a in cs1a1 ];
+ ecs1a1 := [ [ Integers() ! s : s in a ] : a in ecs1a1 ];
+ g1 := GCD(ecs1a1[1]);
+g2 := GCD(ecs1a1[2]);
+g3 := GCD(ecs1a1[3]);
+g4 := GCD(ecs1a1[4]);
+gg := GCD([g1,g2,g3,g4]);
+dcc := [ [1/gg*aa : aa in a ] : a in ecs1a1 ];
+ dcc := [ ON ! s  : s in dcc ];           
+a2 := [ i : i in [1..120] | CFA[i] eq dcc ];
+GA[j][i] := a2[1];
+ end for ;
+ end for ;
+
+gg1 := [ k -1 : k in GA[2]];
+ZN := FreeAbelianGroup(#H); 
+
+GG1 := [ ZN.gg1[j] - ZN.gg1[1] : j in [1..120] ]; 
+GG1 := [ ZN.gg1[j] - ZN.gg1[1] : j in [1..120] ];
+GG1 := [ GG1[i] : i in  [2..120] ];             \\ this is the action of an element of order 6 \\
+conj := hom<ZN -> ZN | GG1 >;                    
+mu := hom< ZN -> JF | [ h(ZN.i) - h(conj(ZN.i)) : i in [1..119]] >;
+ker := Kernel(mu);
+imker := sub< JF | [ h(k) : k in Generators(ker)] >;         \\ the image of the subgroup of H fixed by the action described above \\
+
+ \\ we find that the image imKer is trivial and thus the group of Automorphisms fixes no non-trivial element of H, and hence the rational 2-torsion subgroup is trivial \\  
