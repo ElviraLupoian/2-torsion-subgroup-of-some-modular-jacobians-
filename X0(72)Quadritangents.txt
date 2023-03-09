@@ -1,0 +1,2 @@
+\\ We state 40 quadritangents to the modular curve X0(72) which are sufficient to generate the 2-torsion subgroup of its Jacobian \\
+
