@@ -1,0 +1,2 @@
+These are the generators of the 2-torsion subgroup of the Jacobian of the curve X0(75)/w25:
+
