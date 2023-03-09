@@ -1,0 +1,117 @@
+\\ this is the Magma code used to compute the 2-torsion subgroup of the Jacobian of X0(54) \\
+
+\\ the scheme of tritanents \\
+
+Zxyz<x,y,z>:=PolynomialRing(Integers(),3);                     
+F := x^2*z - x*z^2 - y^3 + y^2 - 3*y +z^3 + 3 ;
+G := x - y*z + z ;
+Zu<[u]> := PolynomialRing(Integers(),7) ;
+ZYZ<Y,Z> := PolynomialRing(Zu,2) ;
+f := Evaluate(F, [u[1]*Y+u[2]*Z+u[3] , Y, Z]);
+g := Evaluate(G, [u[1]*Y+u[2]*Z+u[3] , Y, Z]);
+h := Resultant(f,g,Z);
+ZW<W> := PolynomialRing(Zu);
+h := Evaluate(h,[W,0]);
+l := Coefficient(h,6);
+eqns := Coefficients(h - l*(W^3 + u[4]*W^2 + u[5]*W + u[6])^2); 
+p := W^3 + u[4]*W^2 + u[5]*W + u[6] ;
+e := Discriminant(p)*u[7] -1 ;
+eqns := eqns cat [e] ;
+S := Scheme(AffineSpace(Zu),eqns);
+
+\\ base change S to the finite field F_289 we find its points and hensel lift them \\
+
+K := QuadraticField(5) ;
+OK := Integers(K) ;
+P := 17*OK ;
+FP := Factorization(P) ;
+P := FP[1,1];
+
+F289,phi := ResidueClassField(P);
+S2 := BaseChange(S,F289);
+A := Points(S2) ;
+
+Zz<[u]> := PolynomialRing(OK,7);
+f1 := Zz ! eqns[1];
+f2 := Zz ! eqns[2];
+f3 := Zz ! eqns[3];
+f4 := Zz ! eqns[4];
+f5 := Zz ! eqns[5];
+f6 := Zz ! eqns[6];
+f7 := Zz ! eqns[7];
+
+H := [f1,f2,f3,f4,f5,f6,f7];
+J := JacobianMatrix(H) ;
+
+lift := function(n,A) ;        \\ this function is used to Hensel lift, the input is a point A, which is a solution modulo P^n and the output is a solution mod P^n+1 which lifts A \\                                           
+a := Eltseq(A) ;
+Fn,tn := quo<OK | P^(n) > ;
+b := [ s@@tn : s in a ];
+c := Evaluate(H,b);
+d := [ (1/17^n)*s : s in c] ;
+e := [ phi(s) : s in d ] ;
+Y := Matrix(F289, 7,1, e ) ;
+Jc := Evaluate(J,b) ;
+s1 := Eltseq(Jc[1]) ;
+s2 := Eltseq(Jc[2]) ;
+s3 := Eltseq(Jc[3]) ;
+s4 := Eltseq(Jc[4]) ;
+s5 := Eltseq(Jc[5]) ;
+s6 := Eltseq(Jc[6]) ;
+s7 := Eltseq(Jc[7]) ;
+d1 := [phi(s) : s in s1 ];
+d2 := [phi(s) : s in s2 ];
+d3 := [phi(s) : s in s3 ];
+d4 := [phi(s) : s in s4 ];
+d5 := [phi(s) : s in s5 ];
+d6 := [phi(s) : s in s6 ];
+d7 := [phi(s) : s in s7 ];
+s := d1 cat d2 cat d3 cat d4 cat d5 cat d6 cat d7 ;
+Jcc := Matrix(F289, 7, 7, s);
+Zu<[y]> := PolynomialRing(F289, 7) ;
+B := Matrix(Zu, 7,1, [y[1],y[2],y[3],y[4], y[5], y[6], y[7]]) ;
+JCc := RMatrixSpace(Zu, 7,7) ! Jcc ;
+eqns := Eltseq( (JCc * B ) + Y ) ;
+Zzz<[y]> := PolynomialRing(F289,7);
+g1 := Zzz ! eqns[1] ;
+g2 := Zzz ! eqns[2] ;
+g3 := Zzz ! eqns[3] ;
+g4 := Zzz ! eqns[4] ;
+g5 := Zzz ! eqns[5] ;
+g6 := Zzz ! eqns[6] ;
+g7 := Zzz ! eqns[7] ;
+EQN := [g1,g2,g3,g4 , g5, g6 ,g7 ] ;
+S1 := Scheme(AffineSpace(Zzz) , EQN) ;
+PT := Points(S1) ;
+PPT := [ Eltseq(a) : a in PT ] ;
+PTT := [ s@@phi : s in PPT ] ;
+NPT := [ [b[1] + (17^n)*s[1], b[2] + (17^n)*s[2], b[3] + (17^n)*s[3], b[4] + (17^n)*s[4], b[5] + (17^n)*s[5] ,b[6] + (17^n)*s[6] ,b[7] + (17^n)*s[7] ] : s in PTT ] ;
+return NPT ;
+end function ;
+
+
+\\ the p-adic approximations can be used to obtain the minimal polynomails of the coordinates of points of S using the following function \\
+
+apr := function(x,k,p,d) ;          
+ZZ := FreeAbelianGroup(d+1) ;
+Z2 := FreeAbelianGroup(2) ;
+Z2s := sub< Z2 | [(p^k)*Z2.1,(p^k)*Z2.2] > ;
+Q,pi := quo< Z2 | Z2s > ; 
+R,r := quo<OK | P^k> ;
+a := [ Z2 !  Eltseq((x^i)@@r) : i in [0..d] ] ;
+c := [ pi(s) : s in a ] ;
+phi := hom< ZZ -> Q | c > ;
+K := Kernel(phi) ;
+G := { Eltseq(ZZ ! g) : g in Generators(K) } ;
+W := StandardLattice(d+1) ;
+L := sub<W | [ W ! g : g in G ] > ;
+v := ShortestVector(L) ;
+II := Index(W,L) ;
+Bound := (II)^(1/(d+1));
+Bound2 := (1/1000)*Bound ;
+Zx<u> := PolynomialRing(Integers());
+O := [ v[s+1]*u^s : s in [0..d] ] ;
+T := &+[ a : a in O] ;
+return T, Length(v),Bound2;
+end function ;
+
