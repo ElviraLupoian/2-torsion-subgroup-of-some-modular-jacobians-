@@ -1,0 +1,2 @@
+\\ this is the Magma code used to compute the 2-torsion subgroup of the modular jacobian J0(63) \\
+
